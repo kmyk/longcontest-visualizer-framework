@@ -19,13 +19,7 @@ template <typename T> ostream & operator << (ostream & out, vector<T> const & xs
 
 struct point_t { int x, y; };
 inline bool operator == (point_t const & a, point_t const & b) { return a.x == b.x and a.y == b.y; }
-inline point_t operator - (point_t const & a, point_t const & b) { return (point_t) { a.x - b.x, a.y - b.y }; }
 inline double get_dist(point_t const & a, point_t const & b) { return hypot(b.x - a.x, b.y - a.y); }
-struct point_hash {
-    uint64_t operator () (point_t const & a) const {
-        return hash<uint64_t>()(((uint64_t)a.x << 32) | a.y);
-    }
-};
 
 double calculate_penalty(int dx, int dy, int k, int t) {
     return hypot(dx, dy) * (1 + k /(double) t);
@@ -54,103 +48,17 @@ int get_nearest(point_t const & a, vector<point_t> const & bs) {
     return best_index;
 }
 
-template <typename T>
-bool is_unique(vector<T> const & a) {
-    REP (i, a.size()) {
-        if (find(a.begin() + (i + 1), a.end(), a[i]) != a.end()) {
-            return false;
-        }
-    }
-    return true;
-}
-
-vector<tuple<int, int, vector<int> > > solve(vector<point_t> taxi, vector<point_t> const & passenger, vector<point_t> const & zone) {
-    const int t = taxi.size();
-    const int p = passenger.size();
-    const int z = zone.size();
-    default_random_engine gen;
+vector<tuple<int, int, vector<int> > > solve(vector<point_t> taxis, vector<point_t> const & passengers, vector<point_t> const & zones) {
     vector<tuple<int, int, vector<int> > > result;
-    vector<bool> carrying(taxi.size());
-    vector<bool> delivered(passenger.size());
-    int count_carrying = 0;
-    int count_delivered = 0;
-    typedef unordered_multimap<point_t, pair<int, int>, point_hash> map_t;
-    map_t delta;
-    while (count_delivered < p or count_carrying) {
-        delta.clear();
-        REP (j, p) if (not delivered[j]) {
-            REP (i, t) if (not carrying[i]) {
-                point_t d = passenger[j] - taxi[i];
-                delta.emplace(d, make_pair(i, j));
-            }
-        }
-        REP (j, z) {
-            REP (i, t) if (carrying[i]) {
-                point_t d = zone[j] - taxi[i];
-                delta.emplace(d, make_pair(i, j));
-            }
-        }
-        vector<pair<int, map_t::const_iterator> > freq;
-        for (auto l = delta.begin(); l != delta.end(); ) {
-            auto r = next(l);
-            while (r != delta.end() and l->first == r->first) ++ r;
-            freq.emplace_back(distance(l, r), l);
-            l = r;
-        }
-        int k; map_t::const_iterator it;
-        tie(k, it) = *max_element(ALL(freq), [&](pair<int, map_t::const_iterator> const & a, pair<int, map_t::const_iterator> const & b) {
-            return a.first > b.first;
-        });
-        int dx, dy;
-        vector<int> ts;
-        vector<bool> used(t);
-        unordered_set<point_t, point_hash> used_position;
-        REP (iteration, k) {
-            int i, j; tie(i, j) = it->second;
-            if (iteration == 0) {
-                point_t next_taxi = not carrying[i] ? passenger[j] : zone[j];
-                dx = next_taxi.x - taxi[i].x;
-                dy = next_taxi.y - taxi[i].y;
-            }
-            ts.push_back(i);
-            used[i] = true;
-            used_position.insert(taxi[i]);
-            taxi[i] = not carrying[i] ? passenger[j] : zone[j];
-            used_position.insert(taxi[i]);
-            if (not carrying[i]) {
-                delivered[j] = true;
-                count_delivered += 1;
-            }
-            count_carrying -= carrying[i];
-            carrying[i] = not carrying[i];
-            count_carrying += carrying[i];
-        }
-        REP (i, t) if (not used[i]) {
-            if (not used_position.count(taxi[i])) {
-                used_position.insert(taxi[i]);
-                used[i] = true;
-            }
-        }
-        REP (i, t) if (not used[i]) {
-            assert (used_position.count(taxi[i]));
-            uniform_int_distribution<int> dist(-2, +2);
-            for (int iteration = 0; ; ++ iteration) {
-                int rdx = uniform_int_distribution<int>(- iteration / 4 - 1, + iteration / 4 + 1)(gen);
-                int rdy = uniform_int_distribution<int>(- iteration / 4 - 1, + iteration / 4 + 1)(gen);
-                point_t next_taxi = {
-                    taxi[i].x + rdx,
-                    taxi[i].y + rdy,
-                };
-                if (not used_position.count(next_taxi)) {
-                    used_position.insert(next_taxi);
-                    taxi[i] = next_taxi;
-                    used[i] = true;
-                    result.emplace_back(rdx, rdy, vector<int>(1, i));
-                    break;
-                }
-            }
-        }
-        result.emplace_back(dx, dy, ts);
+    for (point_t p : passengers) {
+        int j = get_nearest(p, zones);
+        auto it = find(ALL(taxis), zones[j]);
+        int i = (it != taxis.end()) ?
+            it - taxis.begin() :
+            get_nearest(p, taxis);
+        result.emplace_back(p.x - taxis[i].x, p.y - taxis[i].y, vector<int>(1, i));
+        result.emplace_back(zones[j].x - p.x, zones[j].y - p.y, vector<int>(1, i));
+        taxis[i] = zones[j];
     }
     return result;
 }
