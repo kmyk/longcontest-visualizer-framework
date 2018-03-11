@@ -1,3 +1,5 @@
+declare var GIF: any;  // for https://github.com/jnordberg/gif.js
+
 module visualizer {
     const error = (msg: string) => {
         alert(msg);
@@ -224,14 +226,11 @@ module visualizer {
             // update the canvas
             const height = this.canvas.height;
             const width = this.canvas.width;
-            this.ctx.fillStyle = 'black';
-            this.ctx.fillRect(0, 0, width, height);  // 1px border
             this.ctx.fillStyle = 'white';
-            this.ctx.fillRect(1, 1, width - 2, height - 2);
+            this.ctx.fillRect(0, 0, width, height);
 
             // draw entities
             this.ctx.fillStyle = 'green';
-console.log(frame.input);
             for (let i = 0; i < frame.input.passengers.length; ++ i) {
                 const passenger = frame.input.passengers[i];
                 const carried = frame.passengers[i].carried;
@@ -263,9 +262,21 @@ console.log(frame.input);
         }
     };
 
+    const saveUrlAsLocalFile = (url: string, filename: string) => {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        const evt = document.createEvent('MouseEvent');
+        evt.initEvent("click", true, true);
+        anchor.dispatchEvent(evt);
+    };
+
     export const main = () => {
         const inputFile = <HTMLInputElement> document.getElementById("inputFile");
         const outputFile = <HTMLInputElement> document.getElementById("outputFile");
+        const saveAsImage = <HTMLInputElement> document.getElementById("saveAsImage");
+        const saveAsVideo = <HTMLInputElement> document.getElementById("saveAsVideo");
+        const canvas = <HTMLCanvasElement> document.getElementById("canvas");
 
         // controls
         const seekRange = <HTMLInputElement> document.getElementById("seekRange");
@@ -279,6 +290,14 @@ console.log(frame.input);
         const runIcon = document.getElementById("runIcon");
 
         let intervalId: number | null = null;
+        const resetInterval = () => {
+            if (intervalId != null) {
+                clearInterval(intervalId);
+                intervalId = null;
+                runIcon.classList.remove('stop');
+                runIcon.classList.add('play');
+            }
+        };
 
         const visualizer = new Visualizer();
         let tester: Tester | null = null;
@@ -296,7 +315,7 @@ console.log(frame.input);
             updateTo(tester.frames.length - 1);  // draw the last frame
 
             const fps = parseInt(fpsInput.value);  // TODO: disabled now, make variable
-            const updateInterval = 1000 / fps;
+            const updateInterval = Math.floor(1000 / fps);
 
             seekRange .onchange = seekRange .oninput = () => { updateTo(parseInt(seekRange .value)); };
             seekNumber.onchange = seekNumber.oninput = () => { updateTo(parseInt(seekNumber.value)); };
@@ -305,18 +324,30 @@ console.log(frame.input);
             nextButton .onclick = () => { updateTo(parseInt(seekRange.value) + 1); };
             lastButton .onclick = () => { updateTo(tester.frames.length - 1); };
 
+            saveAsImage.onclick = () => {
+                saveUrlAsLocalFile(canvas.toDataURL('image/png'), 'canvas.png');
+            };
+            saveAsVideo.onclick = () => {
+                resetInterval();
+                const gif = new GIF();
+                for (let i = 0; i < tester.frames.length; ++ i) {
+                    updateTo(i);
+                    gif.addFrame(canvas, { copy: true, delay: updateInterval });
+                }
+                gif.on('finished', function(blob) {
+                    saveUrlAsLocalFile(URL.createObjectURL(blob), 'canvas.gif');
+                });
+                gif.render();
+                alert('please wait for a while, about 2 minutes.');
+            };
+
             const play = () => {
                 if (seekRange.value == seekRange.max) {  // if last, go to first
                     updateTo(0);
                 }
                 const stop = () => {
-                    runIcon.classList.remove('stop');
-                    runIcon.classList.add('play');
-                    if (intervalId != null) {
-                        clearInterval(intervalId);
-                        playButton.onclick = play;
-                        intervalId = null;
-                    }
+                    resetInterval();
+                    playButton.onclick = play;
                 };
                 intervalId = setInterval(() => {
                     const i = parseInt(seekRange.value);
@@ -343,11 +374,7 @@ console.log(frame.input);
         };
 
         return () => {
-            if (intervalId != null) {
-                runIcon.classList.remove('stop');
-                runIcon.classList.add('play');
-                clearInterval(intervalId);
-            }
+            resetInterval();
             intervalId = null;
             inputFile.files && load_to(inputFile.files[0], (inputContent: string) => {
                 outputFile.files && load_to(outputFile.files[0], (outputContent: string) => {

@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.3.0/dist/semantic.min.css">
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.3.0/dist/semantic.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.min.js"></script>
     <script src="./index.js" type="text/javascript"></script>
 </head>
 
@@ -110,16 +111,16 @@
     </div>
 
     <div>
-        <canvas id="canvas"></canvas>
+        <canvas id="canvas" style="border: black solid 1px; margin-left: 1px;"></canvas>
     </div>
 
     <div class="ui form">
         <div class="inline fields">
             <div class="field">
-                <span id="saveAsImage" class="ui button disabled"><i class="download icon"></i>save as image</span>
+                <span id="saveAsImage" class="ui button"><i class="download icon"></i>save as image</span>
             </div>
             <div class="field">
-                <span id="saveAsVideo" class="ui button disabled"><i class="download icon"></i>save as video</span>
+                <span id="saveAsVideo" class="ui button"><i class="download icon"></i>save as video</span>
             </div>
         </div>
     </div>
