@@ -17,28 +17,52 @@ template <typename X, typename T> auto vectors(X x, T a) { return vector<T>(x, a
 template <typename X, typename Y, typename Z, typename... Zs> auto vectors(X x, Y y, Z z, Zs... zs) { auto cont = vectors(y, z, zs...); return vector<decltype(cont)>(x, cont); }
 template <typename T> ostream & operator << (ostream & out, vector<T> const & xs) { REP (i, int(xs.size()) - 1) out << xs[i] << ' '; if (not xs.empty()) out << xs.back(); return out; }
 
-struct point_t { int x, y; };
-inline bool operator == (point_t const & a, point_t const & b) { return a.x == b.x and a.y == b.y; }
+struct point_t { int y, x; };
+inline bool operator == (point_t const & a, point_t const & b) { return a.y == b.y and a.x == b.x; }
+inline bool operator <  (point_t const & a, point_t const & b) { return a.y < b.y or (a.y == b.y and a.x < b.x); }
+inline point_t operator + (point_t const & a, point_t const & b) { return (point_t) { a.y + b.y, a.x + b.x }; }
+inline point_t operator - (point_t const & a, point_t const & b) { return (point_t) { a.y - b.y, a.x - b.x }; }
+inline point_t & operator += (point_t & a, point_t const & b) { a.y += b.y; a.x += b.x; return a; }
+inline point_t & operator -= (point_t & a, point_t const & b) { a.y -= b.y; a.x -= b.x; return a; }
 inline double get_dist(point_t const & a, point_t const & b) { return hypot(b.x - a.x, b.y - a.y); }
+ostream & operator << (ostream & out, point_t const & a) { return out << "(" << a.y << ", " << a.x << ")"; }
+struct point_hash {
+    uint64_t operator () (point_t const & a) const {
+        return hash<uint64_t>()(((uint64_t)a.y << 32) | a.x);
+    }
+};
 
-double calculate_penalty(int dx, int dy, int k, int t) {
+template <typename T>
+bool is_unique(vector<T> const & a) {
+    REP (i, a.size()) {
+        if (find(a.begin() + (i + 1), a.end(), a[i]) != a.end()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+double calculate_penalty(int dy, int dx, int k, int t) {
     return hypot(dx, dy) * (1 + k /(double) t);
 }
-double calculate_penalty(vector<tuple<int, int, vector<int> > > const & moves, int t) {
+double calculate_penalty(vector<point_t> taxi, vector<pair<point_t, vector<int> > > const & moves, int t) {
     double acc = 0;
     for (auto const & move : moves) {
-        int dx = get<0>(move);
-        int dy = get<1>(move);
-        vector<int> const & ts = get<2>(move);
-        acc += calculate_penalty(dx, dy, ts.size(), t);
+        point_t delta = get<0>(move);
+        vector<int> const & ts = get<1>(move);
+        acc += calculate_penalty(delta.y, delta.x, ts.size(), t);
+        for (int i : ts) {
+            taxi[i] += delta;
+        }
+        if (not is_unique(taxi)) return NAN;
     }
     return acc;
 }
 
-int get_nearest(point_t const & a, vector<point_t> const & bs) {
+int get_nearest(point_t const & a, vector<point_t> const & bs, vector<bool> const & mask) {
     int best_index = -1;
     double best_dist = INFINITY;
-    REP (i, bs.size()) {
+    REP (i, bs.size()) if (not mask[i]) {
         double dist = get_dist(a, bs[i]);
         if (dist < best_dist) {
             best_dist = dist;
@@ -48,17 +72,105 @@ int get_nearest(point_t const & a, vector<point_t> const & bs) {
     return best_index;
 }
 
-vector<tuple<int, int, vector<int> > > solve(vector<point_t> taxis, vector<point_t> const & passengers, vector<point_t> const & zones) {
-    vector<tuple<int, int, vector<int> > > result;
-    for (point_t p : passengers) {
-        int j = get_nearest(p, zones);
-        auto it = find(ALL(taxis), zones[j]);
-        int i = (it != taxis.end()) ?
-            it - taxis.begin() :
-            get_nearest(p, taxis);
-        result.emplace_back(p.x - taxis[i].x, p.y - taxis[i].y, vector<int>(1, i));
-        result.emplace_back(zones[j].x - p.x, zones[j].y - p.y, vector<int>(1, i));
-        taxis[i] = zones[j];
+
+int dir_delta(int dir, point_t delta) {
+    switch (dir) {
+        case 0: return max(0, + delta.x);
+        case 1: return max(0, - delta.y);
+        case 2: return max(0, - delta.x);
+        case 3: return max(0, + delta.y);
+        default: assert (false);
+    }
+}
+point_t dir_amount(int dir, int amount) {
+    switch (dir) {
+        case 0: return { 0, + amount };
+        case 1: return { - amount, 0 };
+        case 2: return { 0, - amount };
+        case 3: return { + amount, 0 };
+        default: assert (false);
+    }
+}
+
+vector<pair<point_t, vector<int> > > solve(vector<point_t> taxi, vector<point_t> const & passenger, vector<point_t> const & zone) {
+    const int t = taxi.size();
+    const int p = passenger.size();
+    const int z = zone.size();
+    default_random_engine gen;
+    vector<pair<point_t, vector<int> > > result;
+    vector<int> carrying(taxi.size());
+    vector<bool> delivered(passenger.size());
+    int count_delivered = 0;
+    vector<point_t> target_delta(t);
+
+    auto update_targets = [&]() {
+        REP (i, t) if (target_delta[i].y == 0 and target_delta[i].x == 0) {
+retry: ;
+            if (carrying[i] == 0) {  // free
+                int j = get_nearest(taxi[i], passenger, delivered);
+                if (j == -1) continue;
+                target_delta[i] = passenger[j] - taxi[i];
+                count_delivered += 1;
+                delivered[j] = true;
+                carrying[i] = 1;
+            } else if (carrying[i] == 1) {  // go to a passenger
+                int j = get_nearest(taxi[i], zone, vector<bool>(z));
+                assert (j != -1);
+                target_delta[i] = zone[j] - taxi[i];
+                carrying[i] = 2;
+            } else if (carrying[i] == 2) {  // go to a zone
+                carrying[i] = 0;
+                goto retry;
+            } else {
+                assert (false);
+            }
+        }
+    };
+    update_targets();
+
+    while (count_delivered < p or count(ALL(carrying), 0) < t) {
+        REP (dir, 4) {
+            while (true) {
+                // move
+                int amount = INT_MAX;
+                REP (i, t) {
+                    int it = dir_delta(dir, target_delta[i]);
+                    if (it == 0) continue;
+                    chmin(amount, it);
+                }
+                if (amount == INT_MAX) break;
+                set<point_t> used_points(ALL(taxi));
+                auto delta = dir_amount(dir, amount);
+                vector<int> ts;
+                REP (i, t) {
+                    int it = dir_delta(dir, target_delta[i]);
+                    if (it == 0) continue;
+                    ts.push_back(i);
+                    target_delta[i] -= delta;
+                    taxi[i] += delta;
+                    used_points.insert(taxi[i]);
+                }
+                if (not is_unique(taxi)) {
+                    vector<int> ts_complement;
+                    REP (i, t) {
+                        if (count(ALL(ts), i)) continue;
+                        if (count(ALL(taxi), taxi[i]) == 1) continue;
+                        int amount = 1;
+                        point_t ortho = dir_amount((dir + 3) % 4, amount);
+                        while (used_points.count(taxi[i] + ortho)) {
+                            ++ amount;
+                            ortho = dir_amount((dir + 3) % 4, amount);
+                        }
+                        taxi[i] += ortho;
+                        target_delta[i] -= ortho;
+                        result.emplace_back(ortho, vector<int>(1, i));
+                        // used_points.insert(taxi[i]);
+                    }
+                }
+                result.emplace_back(delta, ts);
+                update_targets();
+            }
+        }
     }
     return result;
 }
@@ -91,16 +203,15 @@ int main() {
     // output
     printf("%d\n", int(result.size()));
     for (auto const & move : result) {
-        int dx = get<0>(move);
-        int dy = get<1>(move);
-        vector<int> const & ts = get<2>(move);
+        point_t delta = get<0>(move);
+        vector<int> const & ts = get<1>(move);
         int k = ts.size();
-        printf("MOVE %d %d %d", dx, dy, k);
+        printf("MOVE %d %d %d", delta.x, delta.y, k);
         for (int t_i : ts) {
             printf(" %d", t_i + 1);
         }
         printf("\n");
     }
-    fprintf(stderr, "penalty: %lf\n", calculate_penalty(result, t));
+    fprintf(stderr, "penalty: %lf\n", calculate_penalty(taxi, result, t));
     return 0;
 }
