@@ -314,8 +314,8 @@ module visualizer {
             seekRange.step  = seekNumber.step  = '1';
             updateTo(tester.frames.length - 1);  // draw the last frame
 
-            const fps = parseInt(fpsInput.value);  // TODO: disabled now, make variable
-            const updateInterval = Math.floor(1000 / fps);
+            let fps = parseInt(fpsInput.value);  // TODO: disabled now, make variable
+            let updateInterval = Math.floor(1000 / fps);
 
             seekRange .onchange = seekRange .oninput = () => { updateTo(parseInt(seekRange .value)); };
             seekNumber.onchange = seekNumber.oninput = () => { updateTo(parseInt(seekNumber.value)); };
@@ -364,6 +364,16 @@ module visualizer {
                 runIcon.classList.add('stop');
                 playButton.onclick = stop;
             };
+
+            fpsInput.onchange = () => {
+                fps = parseInt(fpsInput.value);
+                updateInterval = Math.floor(1000 / fps);
+                if (intervalId != null) {
+                    resetInterval();
+                    play();
+                }
+            };
+
             playButton.onclick = play;
             playButton.focus();
         };
