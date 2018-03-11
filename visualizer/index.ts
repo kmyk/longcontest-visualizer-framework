@@ -328,6 +328,9 @@ module visualizer {
                 saveUrlAsLocalFile(canvas.toDataURL('image/png'), 'canvas.png');
             };
             saveAsVideo.onclick = () => {
+                if (location.href.match(new RegExp('^file://'))) {
+                    alert('to use this feature, you must re-open this file via "http://", instead of "file://". e.g. you can use "$ python -m SimpleHTTPServer 8000"');
+                }
                 resetInterval();
                 const gif = new GIF();
                 for (let i = 0; i < tester.frames.length; ++ i) {
