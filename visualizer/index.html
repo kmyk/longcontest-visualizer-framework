@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>a visualizer - Yandex Algorithm 2018, Optimization track, Round 1. Driverless flying taxi</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.3.0/dist/semantic.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.3.0/dist/semantic.min.js"></script>
+    <script src="./index.js" type="text/javascript"></script>
+</head>
+
+<body>
+
+    <div class="ui form">
+
+        <div class="inline fields">
+            <div class="field">
+                <div class="ui labeled input">
+                    <div class="ui label">
+                        input file
+                    </div>
+                    <input id="inputFile" type="file" />
+                </div>
+            </div>
+            <div class="field">
+                <div class="ui labeled input">
+                    <div class="ui label">
+                        output file
+                    </div>
+                    <input id="outputFile" type="file" />
+                </div>
+            </div>
+            <div class="field">
+                <button id="run" class="ui primary button">Run</button>
+            </div>
+        </div>
+
+        <div class="inline fields">
+            <div class="six wide field">
+                <input id="seekRange" type="range" />
+            </div>
+            <div class="field">
+                <input id="seekNumber" type="number" />
+            </div>
+            <div class="field">
+                <div class="ui buttons">
+                    <button id="firstButton" class="ui button"><i class="fast backward icon"></i></button>
+                    <button id="prevButton"  class="ui button"><i class="step backward icon"></i></button>
+                    <button id="playButton"  class="ui primary button"><i id="runIcon" class="play icon"></i></button>
+                    <button id="nextButton"  class="ui button"><i class="step forward icon"></i></button>
+                    <button id="lastButton"  class="ui button"><i class="fast forward icon"></i></button>
+                </div>
+            </div>
+            <div class="field">
+                <div class="ui labeled input">
+                    <input id="fpsInput" type="number" value="20" disabled />
+                    <div class="ui label">
+                        fps
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="inline fields">
+            <div class="field">
+                <div class="ui labeled input">
+                    <div class="ui label">
+                        penalty delta
+                    </div>
+                    <input id="penaltyDeltaInput" type="number" disabled />
+                </div>
+            </div>
+            <div class="field">
+                <div class="ui labeled input">
+                    <div class="ui label teal">
+                        penalty sum
+                    </div>
+                    <input id="penaltySumInput" type="number" disabled />
+                </div>
+            </div>
+        </div>
+
+        <div class="inline fields">
+            <div class="field">
+                <div class="ui labeled input">
+                    <div class="ui label">
+                        x
+                    </div>
+                    <input id="xInput" type="number" disabled />
+                </div>
+            </div>
+            <div class="field">
+                <div class="ui labeled input">
+                    <div class="ui label">
+                        y
+                    </div>
+                    <input id="yInput" type="number" disabled />
+                </div>
+            </div>
+            <div class="field">
+                <div class="ui labeled input">
+                    <div class="ui label">
+                        taxis
+                    </div>
+                    <input id="taxisInput" type="text" disabled />
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="ui form">
+        <div class="inline fields">
+            <div class="field">
+                <span id="saveAsImage" class="ui button disabled"><i class="download icon"></i>save as image</span>
+            </div>
+            <div class="field">
+                <span id="saveAsVideo" class="ui button disabled"><i class="download icon"></i>save as video</span>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
