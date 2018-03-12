@@ -46,7 +46,8 @@ bool is_unique(vector<T> const & a) {
 double calculate_penalty(int dy, int dx, int k, int t) {
     return hypot(dx, dy) * (1 + k /(double) t);
 }
-double calculate_penalty(vector<point_t> taxi, vector<pair<point_t, vector<int> > > const & moves, int t) {
+double calculate_penalty(vector<point_t> taxi, vector<pair<point_t, vector<int> > > const & moves) {
+    int t = taxi.size();
     double acc = 0;
     for (auto const & move : moves) {
         point_t delta = get<0>(move);
@@ -55,7 +56,7 @@ double calculate_penalty(vector<point_t> taxi, vector<pair<point_t, vector<int> 
         for (int i : ts) {
             taxi[i] += delta;
         }
-        if (not is_unique(taxi)) return NAN;
+        if (not is_unique(taxi)) return - INFINITY;
     }
     return acc;
 }
@@ -93,11 +94,92 @@ point_t dir_amount(int dir, int amount) {
     }
 }
 
-vector<pair<point_t, vector<int> > > solve(vector<point_t> taxi, vector<point_t> const & passenger, vector<point_t> const & zone) {
+vector<pair<point_t, vector<int> > > solve1(vector<point_t> taxi, vector<point_t> const & passenger, vector<point_t> const & zone) {
     const int t = taxi.size();
     const int p = passenger.size();
     const int z = zone.size();
-    default_random_engine gen;
+    vector<pair<point_t, vector<int> > > result;
+    vector<int> carrying(taxi.size());
+    vector<bool> delivered(passenger.size());
+    int count_delivered = 0;
+    vector<point_t> target_delta(t);
+
+    auto update_targets = [&]() {
+        REP (i, t) if (target_delta[i].y == 0 and target_delta[i].x == 0) {
+retry: ;
+            if (carrying[i] == 0) {  // free
+                int j = get_nearest(taxi[i], passenger, delivered);
+                if (j == -1) continue;
+                target_delta[i] = passenger[j] - taxi[i];
+                count_delivered += 1;
+                delivered[j] = true;
+                carrying[i] = 1;
+            } else if (carrying[i] == 1) {  // go to a passenger
+                int j = get_nearest(taxi[i], zone, vector<bool>(z));
+                assert (j != -1);
+                target_delta[i] = zone[j] - taxi[i];
+                carrying[i] = 2;
+            } else if (carrying[i] == 2) {  // go to a zone
+                carrying[i] = 0;
+                goto retry;
+            } else {
+                assert (false);
+            }
+        }
+    };
+    update_targets();
+
+    while (count_delivered < p or count(ALL(carrying), 0) < t) {
+        REP (dir, 4) {
+            while (true) {
+                // move
+                int amount = INT_MAX;
+                REP (i, t) {
+                    int it = dir_delta(dir, target_delta[i]);
+                    if (it == 0) continue;
+                    chmin(amount, it);
+                }
+                if (amount == INT_MAX) break;
+                set<point_t> used_points(ALL(taxi));
+                auto delta = dir_amount(dir, amount);
+                vector<int> ts;
+                REP (i, t) {
+                    int it = dir_delta(dir, target_delta[i]);
+                    if (it == 0) continue;
+                    ts.push_back(i);
+                    target_delta[i] -= delta;
+                    taxi[i] += delta;
+                    used_points.insert(taxi[i]);
+                }
+                if (not is_unique(taxi)) {
+                    vector<int> ts_complement;
+                    REP (i, t) {
+                        if (count(ALL(ts), i)) continue;
+                        if (count(ALL(taxi), taxi[i]) == 1) continue;
+                        int amount = 1;
+                        point_t ortho = dir_amount((dir + 3) % 4, amount);
+                        while (used_points.count(taxi[i] + ortho)) {
+                            ++ amount;
+                            ortho = dir_amount((dir + 3) % 4, amount);
+                        }
+                        taxi[i] += ortho;
+                        target_delta[i] -= ortho;
+                        result.emplace_back(ortho, vector<int>(1, i));
+                        // used_points.insert(taxi[i]);
+                    }
+                }
+                result.emplace_back(delta, ts);
+                update_targets();
+            }
+        }
+    }
+    return result;
+}
+
+vector<pair<point_t, vector<int> > > solve2(vector<point_t> taxi, vector<point_t> const & passenger, vector<point_t> const & zone) {
+    const int t = taxi.size();
+    const int p = passenger.size();
+    const int z = zone.size();
     vector<pair<point_t, vector<int> > > result;
     vector<bool> carrying(taxi.size());
     vector<bool> delivered(passenger.size());
@@ -240,6 +322,13 @@ vector<pair<point_t, vector<int> > > solve(vector<point_t> taxi, vector<point_t>
     return result;
 }
 
+vector<pair<point_t, vector<int> > > solve(vector<point_t> const & taxi, vector<point_t> const & passenger, vector<point_t> const & zone) {
+    auto result1 = solve1(taxi, passenger, zone);
+    auto result2 = solve2(taxi, passenger, zone);
+    double penalty1 = calculate_penalty(taxi, result1);
+    double penalty2 = calculate_penalty(taxi, result2);
+    return penalty1 < penalty2 ? result1 : result2;
+}
 
 int main() {
     // input
@@ -277,6 +366,6 @@ int main() {
         }
         printf("\n");
     }
-    fprintf(stderr, "penalty: %lf\n", calculate_penalty(taxi, result, t));
+    fprintf(stderr, "penalty: %lf\n", calculate_penalty(taxi, result));
     return 0;
 }
