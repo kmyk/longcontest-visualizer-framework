@@ -374,8 +374,13 @@ module visualizer {
                 }
             };
 
-            playButton.onclick = play;
-            playButton.focus();
+            const autoPlay = true;
+            if (autoPlay) {
+                play();
+            } else {
+                playButton.onclick = play;
+                playButton.focus();
+            }
         };
 
         const load_to = (file: File, callback: (value: string) => void) => {
