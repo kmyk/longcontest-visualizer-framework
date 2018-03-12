@@ -1,10 +1,66 @@
 declare var GIF: any;  // for https://github.com/jnordberg/gif.js
 
 module visualizer {
-    const error = (msg: string) => {
-        alert(msg);
-        throw new Error(msg);
-    };
+    class FileParser {
+        private filename: string;
+        private content: string[][];
+        private y: number;
+        private x: number
+
+        constructor(filename: string, content: string) {
+            this.filename = filename;
+            this.content = [];
+            for (const line of content.split('\n')) {
+                const words = line.trim().split(new RegExp('\\s+'));
+                this.content.push(words);
+            }
+            this.y = 0;
+            this.x = 0;
+        }
+
+        public getWord(): string {
+            if (this.content.length <= this.y) {
+                this.reportError('a word expected, but EOF');
+            }
+            if (this.content[this.y].length <= this.x) {
+                this.reportError('a word expected, but newline');
+            }
+            const word = this.content[this.y][this.x];
+            this.x += 1;
+            return word;
+        }
+        public getInt(): number {
+            const word = this.getWord();
+            if (! word.match(new RegExp('^[-+]?[0-9]+$'))) {
+                this.reportError(`a number expected, but word ${JSON.stringify(this.content[this.y][this.x])}`);
+            }
+            return parseInt(word);
+        }
+        public getNewline() {
+            if (this.content.length <= this.y) {
+                this.reportError('newline expected, but EOF');
+            }
+            if (this.x < this.content[this.y].length) {
+                this.reportError(`newline expected, but word ${JSON.stringify(this.content[this.y][this.x])}`);
+            }
+            this.x = 0;
+            this.y += 1;
+        }
+
+        public unwind() {
+            if (this.x == 0) {
+                this.y -= 1;
+                this.x = this.content[this.y].length - 1;
+            } else {
+                this.x -= 1;
+            }
+        }
+        public reportError(msg: string) {
+            msg = `${this.filename}: line ${this.y + 1}: ${msg}`;
+            alert(msg);
+            throw new Error(msg);
+        }
+    }
 
     class InputFile {
         public taxis: [number, number][];
@@ -14,35 +70,41 @@ module visualizer {
         public zonesDict: any;
 
         constructor(content: string) {
-            const words = content.trim().split(new RegExp('\\s+')).reverse();
+            const parser = new FileParser('<input-file>', content);
 
             // parse
-            const t = parseInt(words.pop());
+            const t = parser.getInt();
+            parser.getNewline();
             this.taxis = [];
             for (let i = 0; i < t; ++ i) {
-                const x = parseInt(words.pop());  // TODO: parse strictly
-                const y = parseInt(words.pop());  // TODO: make a parser class, use line numbers for error messages
+                const x = parser.getInt();
+                const y = parser.getInt();
+                parser.getNewline();
                 this.taxis.push([ x, y ]);
             }
 
             // parse
-            const p = parseInt(words.pop());
+            const p = parser.getInt();
+            parser.getNewline();
             this.passengers = [];
             this.passengersDict = {};
             for (let i = 0; i < p; ++ i) {
-                const x = parseInt(words.pop());
-                const y = parseInt(words.pop());
+                const x = parser.getInt();
+                const y = parser.getInt();
+                parser.getNewline();
                 this.passengers.push([ x, y ]);
                 this.passengersDict[[ x, y ].toString()] = i;
             }
 
             // parse
-            const z = parseInt(words.pop());
+            const z = parser.getInt();
+            parser.getNewline();
             this.zones = [];
             this.zonesDict = {};
             for (let i = 0; i < z; ++ i) {
-                const x = parseInt(words.pop());
-                const y = parseInt(words.pop());
+                const x = parser.getInt();
+                const y = parser.getInt();
+                parser.getNewline();
                 this.zones.push([ x, y ]);
                 this.zonesDict[[ x, y ].toString()] = i;
             }
@@ -53,22 +115,26 @@ module visualizer {
         public commands: [number, number, number[]][];
 
         constructor(content: string) {
-            const words = content.trim().split(/\s+/).reverse();
+            const parser = new FileParser('<output-file>', content);
 
             // parse
-            const k = parseInt(words.pop());
+            const k = parser.getInt();
+            parser.getNewline();
             this.commands = [];
             for (let i = 0; i < k; ++ i) {
-                const command = words.pop();
-                if (command != "MOVE") error("\"MOVE\" expected");
-                const x = parseInt(words.pop());
-                const y = parseInt(words.pop());
-                const t = parseInt(words.pop());
+                const command = parser.getWord();
+                if (command != "MOVE") {
+                    parser.reportError("\"MOVE\" expected");
+                }
+                const x = parser.getInt();
+                const y = parser.getInt();
+                const t = parser.getInt();
                 const targets = [];
                 for (let j = 0; j < t; ++ j) {
-                    const target = parseInt(words.pop());
+                    const target = parser.getInt();
                     targets.push(target);
                 }
+                parser.getNewline();
                 this.commands.push([ x, y, targets ]);
             }
         }
@@ -118,7 +184,7 @@ module visualizer {
                 const dy = this.command[1];
                 for (let i of this.command[2]) {
                     i -= 1;
-                    if (i < 0 || this.taxis.length <= i) error("index out of range");
+                    if (i < 0 || this.taxis.length <= i) alert("<tester>: index out of range");
                     this.taxis[i].x += dx;
                     this.taxis[i].y += dy;
                     const key = [ this.taxis[i].x, this.taxis[i].y ].toString();
@@ -170,7 +236,7 @@ module visualizer {
             this.canvas.width  = size;  // pixels
             this.ctx = this.canvas.getContext('2d');
             if (this.ctx == null) {
-                error('unsupported browser');
+                alert('unsupported browser');
             }
             this.xInput = <HTMLInputElement> document.getElementById("xInput");
             this.yInput = <HTMLInputElement> document.getElementById("yInput");
