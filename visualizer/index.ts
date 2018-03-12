@@ -262,6 +262,14 @@ module visualizer {
         }
     };
 
+    const loadFile = (file: File, callback: (value: string) => void) => {
+        const reader = new FileReader();
+        reader.readAsText(file);
+        reader.onloadend = function () {
+            callback(reader.result);
+        }
+    };
+
     const saveUrlAsLocalFile = (url: string, filename: string) => {
         const anchor = document.createElement('a');
         anchor.href = url;
@@ -271,71 +279,106 @@ module visualizer {
         anchor.dispatchEvent(evt);
     };
 
-    export const main = () => {
-        const inputFile = <HTMLInputElement> document.getElementById("inputFile");
-        const outputFile = <HTMLInputElement> document.getElementById("outputFile");
-        const saveAsImage = <HTMLInputElement> document.getElementById("saveAsImage");
-        const saveAsVideo = <HTMLInputElement> document.getElementById("saveAsVideo");
-        const canvas = <HTMLCanvasElement> document.getElementById("canvas");
+    export class App {
+        // system
+        public inputFile: HTMLInputElement;
+        public outputFile: HTMLInputElement;
+        public reloadButton: HTMLInputElement;
+        public saveAsImage: HTMLInputElement;
+        public saveAsVideo: HTMLInputElement;
+        public canvas: HTMLCanvasElement;
 
         // controls
-        const seekRange = <HTMLInputElement> document.getElementById("seekRange");
-        const seekNumber = <HTMLInputElement> document.getElementById("seekNumber");
-        const fpsInput = <HTMLInputElement> document.getElementById("fpsInput");
-        const firstButton = <HTMLInputElement> document.getElementById("firstButton");
-        const prevButton = <HTMLInputElement> document.getElementById("prevButton");
-        const playButton = <HTMLInputElement> document.getElementById("playButton");
-        const nextButton = <HTMLInputElement> document.getElementById("nextButton");
-        const lastButton = <HTMLInputElement> document.getElementById("lastButton");
-        const runIcon = document.getElementById("runIcon");
+        public seekRange: HTMLInputElement;
+        public seekNumber: HTMLInputElement;
+        public fpsInput: HTMLInputElement;
+        public firstButton: HTMLInputElement;
+        public prevButton: HTMLInputElement;
+        public playButton: HTMLInputElement;
+        public nextButton: HTMLInputElement;
+        public lastButton: HTMLInputElement;
+        public runIcon: HTMLElement;
 
-        let intervalId: number | null = null;
-        const resetInterval = () => {
-            if (intervalId != null) {
-                clearInterval(intervalId);
-                intervalId = null;
-                runIcon.classList.remove('stop');
-                runIcon.classList.add('play');
-            }
-        };
+        public intervalId: number | null = null;
+        public visualizer: Visualizer;
+        public tester: Tester;
 
-        const visualizer = new Visualizer();
-        let tester: Tester | null = null;
-        const updateTo = (i: number) => {
-            i = Math.max(0, Math.min(tester.frames.length - 1, i));  // clamp
-            seekRange.value = seekNumber.value = i.toString();
-            visualizer.draw(tester.frames[i]);
-        };
+        constructor() {
+            // system
+            this.inputFile = <HTMLInputElement> document.getElementById("inputFile");
+            this.outputFile = <HTMLInputElement> document.getElementById("outputFile");
+            this.reloadButton = <HTMLInputElement> document.getElementById("reloadButton");
+            this.saveAsImage = <HTMLInputElement> document.getElementById("saveAsImage");
+            this.saveAsVideo = <HTMLInputElement> document.getElementById("saveAsVideo");
+            this.canvas = <HTMLCanvasElement> document.getElementById("canvas");
 
-        const run = (inputContent: string, outputContent: string) => {
-            tester = new Tester( new InputFile(inputContent), new OutputFile(outputContent) );
-            seekRange.min   = seekNumber.min   = '0';
-            seekRange.max   = seekNumber.max   = (tester.frames.length - 1).toString();
-            seekRange.step  = seekNumber.step  = '1';
-            updateTo(tester.frames.length - 1);  // draw the last frame
+            // controls
+            this.seekRange = <HTMLInputElement> document.getElementById("seekRange");
+            this.seekNumber = <HTMLInputElement> document.getElementById("seekNumber");
+            this.fpsInput = <HTMLInputElement> document.getElementById("fpsInput");
+            this.firstButton = <HTMLInputElement> document.getElementById("firstButton");
+            this.prevButton = <HTMLInputElement> document.getElementById("prevButton");
+            this.playButton = <HTMLInputElement> document.getElementById("playButton");
+            this.nextButton = <HTMLInputElement> document.getElementById("nextButton");
+            this.lastButton = <HTMLInputElement> document.getElementById("lastButton");
+            this.runIcon = document.getElementById("runIcon");
 
-            let fps = parseInt(fpsInput.value);  // TODO: disabled now, make variable
-            let updateInterval = Math.floor(1000 / fps);
+            this.intervalId = null;
+            this.visualizer = new Visualizer();
 
-            seekRange .onchange = seekRange .oninput = () => { updateTo(parseInt(seekRange .value)); };
-            seekNumber.onchange = seekNumber.oninput = () => { updateTo(parseInt(seekNumber.value)); };
-            firstButton.onclick = () => { updateTo(0); };
-            prevButton .onclick = () => { updateTo(parseInt(seekRange.value) - 1); };
-            nextButton .onclick = () => { updateTo(parseInt(seekRange.value) + 1); };
-            lastButton .onclick = () => { updateTo(tester.frames.length - 1); };
+            this.inputFile.onchange = () => { this.reloadFiles(); };
+            this.outputFile.onchange = () => { this.reloadFiles(); };
+            this.reloadButton.onclick = () => { this.reloadFiles(); };
+        }
 
-            saveAsImage.onclick = () => {
-                saveUrlAsLocalFile(canvas.toDataURL('image/png'), 'canvas.png');
+        updateTo(i: number) {
+            i = Math.max(0, Math.min(this.tester.frames.length - 1, i));  // clamp
+            this.seekRange.value = this.seekNumber.value = i.toString();
+            this.visualizer.draw(this.tester.frames[i]);
+        }
+
+        reloadFiles() {
+            if (this.inputFile.files.length == 0 || this.outputFile.files.length == 0) return;
+            loadFile(this.inputFile.files[0], (inputContent: string) => {
+                loadFile(this.outputFile.files[0], (outputContent: string) => {
+                    this.resetInterval();
+                    this.intervalId = null;
+                    this.fileLoaded(inputContent, outputContent);
+                });
+            });
+        }
+
+        getUpdateInterval(): number {
+            const fps = parseInt(this.fpsInput.value);
+            return Math.floor(1000 / fps);
+        }
+
+        fileLoaded(inputContent: string, outputContent: string) {
+            this.tester = new Tester( new InputFile(inputContent), new OutputFile(outputContent) );
+            this.seekRange.min   = this.seekNumber.min   = '0';
+            this.seekRange.max   = this.seekNumber.max   = (this.tester.frames.length - 1).toString();
+            this.seekRange.step  = this.seekNumber.step  = '1';
+            this.updateTo(this.tester.frames.length - 1);  // draw the last frame
+
+            this.seekRange .onchange = this.seekRange .oninput = () => { this.updateTo(parseInt(this.seekRange .value)); };
+            this.seekNumber.onchange = this.seekNumber.oninput = () => { this.updateTo(parseInt(this.seekNumber.value)); };
+            this.firstButton.onclick = () => { this.updateTo(0); };
+            this.prevButton .onclick = () => { this.updateTo(parseInt(this.seekRange.value) - 1); };
+            this.nextButton .onclick = () => { this.updateTo(parseInt(this.seekRange.value) + 1); };
+            this.lastButton .onclick = () => { this.updateTo(this.tester.frames.length - 1); };
+
+            this.saveAsImage.onclick = () => {
+                saveUrlAsLocalFile(this.canvas.toDataURL('image/png'), 'canvas.png');
             };
-            saveAsVideo.onclick = () => {
+            this.saveAsVideo.onclick = () => {
                 if (location.href.match(new RegExp('^file://'))) {
                     alert('to use this feature, you must re-open this file via "http://", instead of "file://". e.g. you can use "$ python -m SimpleHTTPServer 8000"');
                 }
-                resetInterval();
+                this.resetInterval();
                 const gif = new GIF();
-                for (let i = 0; i < tester.frames.length; ++ i) {
-                    updateTo(i);
-                    gif.addFrame(canvas, { copy: true, delay: updateInterval });
+                for (let i = 0; i < this.tester.frames.length; ++ i) {
+                    this.updateTo(i);
+                    gif.addFrame(this.canvas, { copy: true, delay: this.getUpdateInterval() });
                 }
                 gif.on('finished', function(blob) {
                     saveUrlAsLocalFile(URL.createObjectURL(blob), 'canvas.gif');
@@ -344,69 +387,55 @@ module visualizer {
                 alert('please wait for a while, about 2 minutes.');
             };
 
-            const play = () => {
-                if (seekRange.value == seekRange.max) {  // if last, go to first
-                    updateTo(0);
+            this.fpsInput.onchange = () => {
+                if (this.intervalId != null) {
+                    this.resetInterval();
+                    this.play();
                 }
-                const stop = () => {
-                    resetInterval();
-                    playButton.onclick = play;
-                };
-                intervalId = setInterval(() => {
-                    const i = parseInt(seekRange.value);
-                    if (i == tester.frames.length - 1) {
-                        stop();
-                    } else {
-                        updateTo(i + 1);
-                    }
-                }, updateInterval);
-                runIcon.classList.remove('play');
-                runIcon.classList.add('stop');
-                playButton.onclick = stop;
             };
 
-            fpsInput.onchange = () => {
-                fps = parseInt(fpsInput.value);
-                updateInterval = Math.floor(1000 / fps);
-                if (intervalId != null) {
-                    resetInterval();
-                    play();
-                }
-            };
+            this.reloadButton.innerHTML = '<i class="sync icon"></i> reload';
 
             const autoPlay = true;
             if (autoPlay) {
-                play();
+                this.play();
             } else {
-                playButton.onclick = play;
-                playButton.focus();
+                this.playButton.onclick = () => { this.play(); };
+                this.playButton.focus();
             }
-        };
+        }
 
-        const load_to = (file: File, callback: (value: string) => void) => {
-            const reader = new FileReader();
-            reader.readAsText(file);
-            reader.onloadend = function () {
-                callback(reader.result);
+        resetInterval() {
+            if (this.intervalId != null) {
+                clearInterval(this.intervalId);
+                this.intervalId = null;
+                this.runIcon.classList.remove('stop');
+                this.runIcon.classList.add('play');
             }
-        };
-
-        const reloadFiles = () => {
-            if (! inputFile.files || ! outputFile.files) return;
-            load_to(inputFile.files[0], (inputContent: string) => {
-                load_to(outputFile.files[0], (outputContent: string) => {
-                    resetInterval();
-                    intervalId = null;
-                    run(inputContent, outputContent);
-                });
-            });
-        };
-        inputFile.onchange = reloadFiles;
-        outputFile.onchange = reloadFiles;
-        return reloadFiles;
-    };
+        }
+        play() {
+            if (this.seekRange.value == this.seekRange.max) {  // if last, go to first
+                this.updateTo(0);
+            }
+            this.intervalId = setInterval(() => {
+                const i = parseInt(this.seekRange.value);
+                if (i == this.tester.frames.length - 1) {
+                    this.stop();
+                } else {
+                    this.updateTo(i + 1);
+                }
+            }, this.getUpdateInterval());
+            this.runIcon.classList.remove('play');
+            this.runIcon.classList.add('stop');
+            this.playButton.onclick = () => { this.stop(); };
+        }
+        stop() {
+            this.resetInterval();
+            this.playButton.onclick = () => { this.play(); };
+        }
+    }
 }
 
 window.onload = () => {
-    (<HTMLButtonElement> document.getElementById("run")).onclick = visualizer.main();
+    new visualizer.App();
 };
