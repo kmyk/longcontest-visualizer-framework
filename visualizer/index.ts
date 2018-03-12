@@ -391,15 +391,19 @@ module visualizer {
             }
         };
 
-        return () => {
-            resetInterval();
-            intervalId = null;
-            inputFile.files && load_to(inputFile.files[0], (inputContent: string) => {
-                outputFile.files && load_to(outputFile.files[0], (outputContent: string) => {
+        const reloadFiles = () => {
+            if (! inputFile.files || ! outputFile.files) return;
+            load_to(inputFile.files[0], (inputContent: string) => {
+                load_to(outputFile.files[0], (outputContent: string) => {
+                    resetInterval();
+                    intervalId = null;
                     run(inputContent, outputContent);
                 });
             });
         };
+        inputFile.onchange = reloadFiles;
+        outputFile.onchange = reloadFiles;
+        return reloadFiles;
     };
 }
 
