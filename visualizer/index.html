@@ -20,115 +20,117 @@
         </div>
     </div>
 
-    <div class="ui form">
+    <div class="ui container center aligned">
+        <div class="ui form">
 
-        <div class="inline fields">
-            <div class="field">
-                <div class="ui labeled input">
-                    <div class="ui label">
-                        input file
+            <div class="inline fields">
+                <div class="field">
+                    <div class="ui labeled input">
+                        <div class="ui label">
+                            input file
+                        </div>
+                        <input id="inputFile" type="file" />
                     </div>
-                    <input id="inputFile" type="file" />
+                </div>
+                <div class="field">
+                    <div class="ui labeled input">
+                        <div class="ui label">
+                            output file
+                        </div>
+                        <input id="outputFile" type="file" />
+                    </div>
+                </div>
+                <div class="field">
+                    <button id="reloadButton" class="ui primary button">Run</button>
                 </div>
             </div>
-            <div class="field">
-                <div class="ui labeled input">
-                    <div class="ui label">
-                        output file
+
+            <div class="inline fields">
+                <div class="six wide field">
+                    <input id="seekRange" type="range" />
+                </div>
+                <div class="field">
+                    <input id="seekNumber" type="number" />
+                </div>
+                <div class="field">
+                    <div class="ui buttons">
+                        <button id="firstButton" class="ui button"><i class="fast backward icon"></i></button>
+                        <button id="prevButton"  class="ui button"><i class="step backward icon"></i></button>
+                        <button id="playButton"  class="ui primary button"><i id="runIcon" class="play icon"></i></button>
+                        <button id="nextButton"  class="ui button"><i class="step forward icon"></i></button>
+                        <button id="lastButton"  class="ui button"><i class="fast forward icon"></i></button>
                     </div>
-                    <input id="outputFile" type="file" />
+                </div>
+                <div class="field">
+                    <div class="ui labeled input">
+                        <input id="fpsInput" type="number" value="20" />
+                        <div class="ui label">
+                            fps
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="field">
-                <button id="reloadButton" class="ui primary button">Run</button>
+
+            <div class="inline fields">
+                <div class="field">
+                    <div class="ui labeled input">
+                        <div class="ui label">
+                            penalty delta
+                        </div>
+                        <input id="penaltyDeltaInput" type="number" disabled />
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui labeled input">
+                        <div class="ui label teal">
+                            penalty sum
+                        </div>
+                        <input id="penaltySumInput" type="number" disabled />
+                    </div>
+                </div>
             </div>
+
+            <div class="inline fields">
+                <div class="field">
+                    <div class="ui labeled input">
+                        <div class="ui label">
+                            x
+                        </div>
+                        <input id="xInput" type="number" disabled />
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui labeled input">
+                        <div class="ui label">
+                            y
+                        </div>
+                        <input id="yInput" type="number" disabled />
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui labeled input">
+                        <div class="ui label">
+                            taxis
+                        </div>
+                        <input id="taxisInput" type="text" disabled />
+                    </div>
+                </div>
+            </div>
+
         </div>
 
-        <div class="inline fields">
-            <div class="six wide field">
-                <input id="seekRange" type="range" />
-            </div>
-            <div class="field">
-                <input id="seekNumber" type="number" />
-            </div>
-            <div class="field">
-                <div class="ui buttons">
-                    <button id="firstButton" class="ui button"><i class="fast backward icon"></i></button>
-                    <button id="prevButton"  class="ui button"><i class="step backward icon"></i></button>
-                    <button id="playButton"  class="ui primary button"><i id="runIcon" class="play icon"></i></button>
-                    <button id="nextButton"  class="ui button"><i class="step forward icon"></i></button>
-                    <button id="lastButton"  class="ui button"><i class="fast forward icon"></i></button>
-                </div>
-            </div>
-            <div class="field">
-                <div class="ui labeled input">
-                    <input id="fpsInput" type="number" value="20" />
-                    <div class="ui label">
-                        fps
-                    </div>
-                </div>
-            </div>
+        <div>
+            <canvas id="canvas" style="border: black solid 1px; margin-left: 1px;"></canvas>
         </div>
 
-        <div class="inline fields">
-            <div class="field">
-                <div class="ui labeled input">
-                    <div class="ui label">
-                        penalty delta
-                    </div>
-                    <input id="penaltyDeltaInput" type="number" disabled />
+        <div class="ui form">
+            <div class="inline fields">
+                <div class="field">
+                    <span id="saveAsImage" class="ui button"><i class="download icon"></i>save as image</span>
                 </div>
-            </div>
-            <div class="field">
-                <div class="ui labeled input">
-                    <div class="ui label teal">
-                        penalty sum
-                    </div>
-                    <input id="penaltySumInput" type="number" disabled />
+                <div class="field">
+                    <span id="saveAsVideo" class="ui button"><i class="download icon"></i>save as video</span>
                 </div>
-            </div>
-        </div>
-
-        <div class="inline fields">
-            <div class="field">
-                <div class="ui labeled input">
-                    <div class="ui label">
-                        x
-                    </div>
-                    <input id="xInput" type="number" disabled />
-                </div>
-            </div>
-            <div class="field">
-                <div class="ui labeled input">
-                    <div class="ui label">
-                        y
-                    </div>
-                    <input id="yInput" type="number" disabled />
-                </div>
-            </div>
-            <div class="field">
-                <div class="ui labeled input">
-                    <div class="ui label">
-                        taxis
-                    </div>
-                    <input id="taxisInput" type="text" disabled />
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <div>
-        <canvas id="canvas" style="border: black solid 1px; margin-left: 1px;"></canvas>
-    </div>
-
-    <div class="ui form">
-        <div class="inline fields">
-            <div class="field">
-                <span id="saveAsImage" class="ui button"><i class="download icon"></i>save as image</span>
-            </div>
-            <div class="field">
-                <span id="saveAsVideo" class="ui button"><i class="download icon"></i>save as video</span>
             </div>
         </div>
     </div>
