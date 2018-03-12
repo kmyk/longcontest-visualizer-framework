@@ -1,7 +1,7 @@
 declare var GIF: any;  // for https://github.com/jnordberg/gif.js
 
-module visualizer {
-    class FileParser {
+module framework {
+    export class FileParser {
         private filename: string;
         private content: string[][];
         private y: number;
@@ -62,6 +62,191 @@ module visualizer {
         }
     }
 
+    export class FileSelector {
+        public callback: (inputContent: string, outputContent: string) => void;
+
+        private inputFile: HTMLInputElement;
+        private outputFile: HTMLInputElement;
+        private reloadButton: HTMLInputElement;
+
+        constructor() {
+            this.inputFile = <HTMLInputElement> document.getElementById("inputFile");
+            this.outputFile = <HTMLInputElement> document.getElementById("outputFile");
+            this.reloadButton = <HTMLInputElement> document.getElementById("reloadButton");
+
+            this.reloadFilesClosure = () => { this.reloadFiles(); };
+            this. inputFile.addEventListener('change', this.reloadFilesClosure);
+            this.outputFile.addEventListener('change', this.reloadFilesClosure);
+            this.reloadButton.addEventListener('click', this.reloadFilesClosure);
+        }
+
+        private reloadFilesClosure: () => void;
+        reloadFiles() {
+            if (this.inputFile.files.length == 0 || this.outputFile.files.length == 0) return;
+            loadFile(this.inputFile.files[0], (inputContent: string) => {
+                loadFile(this.outputFile.files[0], (outputContent: string) => {
+                    this. inputFile.removeEventListener('change', this.reloadFilesClosure);
+                    this.outputFile.removeEventListener('change', this.reloadFilesClosure);
+                    this.reloadButton.classList.remove('disabled');
+                    if (this.callback !== undefined) {
+                        this.callback(inputContent, outputContent);
+                    }
+                });
+            });
+        }
+    }
+
+    export class RichSeekBar {
+        public callback: (value: number) => void;
+
+        private seekRange: HTMLInputElement;
+        private seekNumber: HTMLInputElement;
+        private fpsInput: HTMLInputElement;
+        private firstButton: HTMLInputElement;
+        private prevButton: HTMLInputElement;
+        private playButton: HTMLInputElement;
+        private nextButton: HTMLInputElement;
+        private lastButton: HTMLInputElement;
+        private runIcon: HTMLElement;
+        private intervalId: number;
+        private playClosure: () => void;
+        private stopClosure: () => void;
+
+        constructor() {
+            this.seekRange  = <HTMLInputElement> document.getElementById("seekRange");
+            this.seekNumber = <HTMLInputElement> document.getElementById("seekNumber");
+            this.fpsInput = <HTMLInputElement> document.getElementById("fpsInput");
+            this.firstButton = <HTMLInputElement> document.getElementById("firstButton");
+            this.prevButton = <HTMLInputElement> document.getElementById("prevButton");
+            this.playButton = <HTMLInputElement> document.getElementById("playButton");
+            this.nextButton = <HTMLInputElement> document.getElementById("nextButton");
+            this.lastButton = <HTMLInputElement> document.getElementById("lastButton");
+            this.runIcon = document.getElementById("runIcon");
+            this.intervalId = null;
+
+            this.setMinMax(-1, -1);
+            this.seekRange .addEventListener('change', () => { this.setValue(parseInt(this.seekRange .value)); });
+            this.seekNumber.addEventListener('change', () => { this.setValue(parseInt(this.seekNumber.value)); });
+            this.seekRange .addEventListener('input',  () => { this.setValue(parseInt(this.seekRange .value)); });
+            this.seekNumber.addEventListener('input',  () => { this.setValue(parseInt(this.seekNumber.value)); });
+            this.fpsInput.addEventListener('change', () => { if (this.intervalId !== null) { this.play(); } });
+            this.firstButton.addEventListener('click', () => { this.stop(); this.setValue(this.getMin()); });
+            this.prevButton .addEventListener('click', () => { this.stop(); this.setValue(this.getValue() - 1); });
+            this.nextButton .addEventListener('click', () => { this.stop(); this.setValue(this.getValue() + 1); });
+            this.lastButton .addEventListener('click', () => { this.stop(); this.setValue(this.getMax()); });
+            this.playClosure = () => { this.play(); };
+            this.stopClosure = () => { this.stop(); };
+            this.playButton.addEventListener('click', this.playClosure);
+        }
+
+        public setMinMax(min: number, max: number) {
+            this.seekRange.min   = this.seekNumber.min   = min.toString();
+            this.seekRange.max   = this.seekNumber.max   = max.toString();
+            this.seekRange.step  = this.seekNumber.step  = '1';
+            this.setValue(min);
+        }
+        public getMin(): number {
+            return parseInt(this.seekRange.min);
+        }
+        public getMax(): number {
+            return parseInt(this.seekRange.max);
+        }
+
+        public setValue(value: number) {
+            value = Math.max(this.getMin(),
+                    Math.min(this.getMax(), value));  // clamp
+            this.seekRange.value = this.seekNumber.value = value.toString();
+            if (this.callback !== undefined) {
+                this.callback(value);
+            }
+        }
+        public getValue(): number {
+            return parseInt(this.seekRange.value);
+        }
+
+        public getDelay(): number {
+            const fps = parseInt(this.fpsInput.value);
+            return Math.floor(1000 / fps);
+        }
+        private resetInterval() {
+            if (this.intervalId !== undefined) {
+                clearInterval(this.intervalId);
+                this.intervalId = undefined;
+            }
+        }
+        public play() {
+            this.playButton.removeEventListener('click', this.playClosure);
+            this.playButton.   addEventListener('click', this.stopClosure);
+            this.runIcon.classList.remove('play');
+            this.runIcon.classList.add('stop');
+            if (this.getValue() == this.getMax()) {  // if last, go to first
+                this.setValue(this.getMin());
+            }
+            this.resetInterval();
+            this.intervalId = setInterval(() => {
+                if (this.getValue() == this.getMax()) {
+                    this.stop();
+                } else {
+                    this.setValue(this.getValue() + 1);
+                }
+            }, this.getDelay());
+        }
+        public stop() {
+            this.playButton.removeEventListener('click', this.stopClosure);
+            this.playButton.   addEventListener('click', this.playClosure);
+            this.runIcon.classList.remove('stop');
+            this.runIcon.classList.add('play');
+            this.resetInterval();
+        }
+    }
+
+    const loadFile = (file: File, callback: (value: string) => void) => {
+        const reader = new FileReader();
+        reader.readAsText(file);
+        reader.onloadend = function () {
+            callback(reader.result);
+        }
+    };
+
+    const saveUrlAsLocalFile = (url: string, filename: string) => {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        const evt = document.createEvent('MouseEvent');
+        evt.initEvent("click", true, true);
+        anchor.dispatchEvent(evt);
+    };
+
+    export class FileExporter {
+        constructor(canvas: HTMLCanvasElement, seek: RichSeekBar) {
+            const saveAsImage = <HTMLInputElement> document.getElementById("saveAsImage");
+            const saveAsVideo = <HTMLInputElement> document.getElementById("saveAsVideo");
+
+            saveAsImage.addEventListener('click', () => {
+                saveUrlAsLocalFile(canvas.toDataURL('image/png'), 'canvas.png');
+            });
+
+            saveAsVideo.addEventListener('click', () => {
+                if (location.href.match(new RegExp('^file://'))) {
+                    alert('to use this feature, you must re-open this file via "http://", instead of "file://". e.g. you can use "$ python -m SimpleHTTPServer 8000"');
+                }
+                seek.stop();
+                const gif = new GIF();
+                for (let i = seek.getMin(); i < seek.getMax(); ++ i) {
+                    seek.setValue(i);
+                    gif.addFrame(canvas, { copy: true, delay: seek.getDelay() });
+                }
+                gif.on('finished', function(blob) {
+                    saveUrlAsLocalFile(URL.createObjectURL(blob), 'canvas.gif');
+                });
+                gif.render();
+                alert('please wait for a while, about 2 minutes.');
+            });
+        }
+    }
+}
+
+module visualizer {
     class InputFile {
         public taxis: [number, number][];
         public passengers: [number, number][];
@@ -70,7 +255,7 @@ module visualizer {
         public zonesDict: any;
 
         constructor(content: string) {
-            const parser = new FileParser('<input-file>', content);
+            const parser = new framework.FileParser('<input-file>', content);
 
             // parse
             const t = parser.getInt();
@@ -115,7 +300,7 @@ module visualizer {
         public commands: [number, number, number[]][];
 
         constructor(content: string) {
-            const parser = new FileParser('<output-file>', content);
+            const parser = new framework.FileParser('<output-file>', content);
 
             // parse
             const k = parser.getInt();
@@ -334,201 +519,18 @@ module visualizer {
         }
     };
 
-    class FileSelector {
-        public callback: (inputContent: string, outputContent: string) => void;
-
-        private inputFile: HTMLInputElement;
-        private outputFile: HTMLInputElement;
-        private reloadButton: HTMLInputElement;
-
-        constructor() {
-            this.inputFile = <HTMLInputElement> document.getElementById("inputFile");
-            this.outputFile = <HTMLInputElement> document.getElementById("outputFile");
-            this.reloadButton = <HTMLInputElement> document.getElementById("reloadButton");
-
-            this.reloadFilesClosure = () => { this.reloadFiles(); };
-            this. inputFile.addEventListener('change', this.reloadFilesClosure);
-            this.outputFile.addEventListener('change', this.reloadFilesClosure);
-            this.reloadButton.addEventListener('click', this.reloadFilesClosure);
-        }
-
-        private reloadFilesClosure: () => void;
-        reloadFiles() {
-            if (this.inputFile.files.length == 0 || this.outputFile.files.length == 0) return;
-            loadFile(this.inputFile.files[0], (inputContent: string) => {
-                loadFile(this.outputFile.files[0], (outputContent: string) => {
-                    this. inputFile.removeEventListener('change', this.reloadFilesClosure);
-                    this.outputFile.removeEventListener('change', this.reloadFilesClosure);
-                    this.reloadButton.classList.remove('disabled');
-                    if (this.callback !== undefined) {
-                        this.callback(inputContent, outputContent);
-                    }
-                });
-            });
-        }
-    }
-
-    class RichSeekBar {
-        public callback: (value: number) => void;
-
-        private seekRange: HTMLInputElement;
-        private seekNumber: HTMLInputElement;
-        private fpsInput: HTMLInputElement;
-        private firstButton: HTMLInputElement;
-        private prevButton: HTMLInputElement;
-        private playButton: HTMLInputElement;
-        private nextButton: HTMLInputElement;
-        private lastButton: HTMLInputElement;
-        private runIcon: HTMLElement;
-        private intervalId: number;
-        private playClosure: () => void;
-        private stopClosure: () => void;
-
-        constructor() {
-            this.seekRange  = <HTMLInputElement> document.getElementById("seekRange");
-            this.seekNumber = <HTMLInputElement> document.getElementById("seekNumber");
-            this.fpsInput = <HTMLInputElement> document.getElementById("fpsInput");
-            this.firstButton = <HTMLInputElement> document.getElementById("firstButton");
-            this.prevButton = <HTMLInputElement> document.getElementById("prevButton");
-            this.playButton = <HTMLInputElement> document.getElementById("playButton");
-            this.nextButton = <HTMLInputElement> document.getElementById("nextButton");
-            this.lastButton = <HTMLInputElement> document.getElementById("lastButton");
-            this.runIcon = document.getElementById("runIcon");
-            this.intervalId = null;
-
-            this.setMinMax(-1, -1);
-            this.seekRange .addEventListener('change', () => { this.setValue(parseInt(this.seekRange .value)); });
-            this.seekNumber.addEventListener('change', () => { this.setValue(parseInt(this.seekNumber.value)); });
-            this.seekRange .addEventListener('input',  () => { this.setValue(parseInt(this.seekRange .value)); });
-            this.seekNumber.addEventListener('input',  () => { this.setValue(parseInt(this.seekNumber.value)); });
-            this.fpsInput.addEventListener('change', () => { if (this.intervalId !== null) { this.play(); } });
-            this.firstButton.addEventListener('click', () => { this.stop(); this.setValue(this.getMin()); });
-            this.prevButton .addEventListener('click', () => { this.stop(); this.setValue(this.getValue() - 1); });
-            this.nextButton .addEventListener('click', () => { this.stop(); this.setValue(this.getValue() + 1); });
-            this.lastButton .addEventListener('click', () => { this.stop(); this.setValue(this.getMax()); });
-            this.playClosure = () => { this.play(); };
-            this.stopClosure = () => { this.stop(); };
-            this.playButton.addEventListener('click', this.playClosure);
-        }
-
-        public setMinMax(min: number, max: number) {
-            this.seekRange.min   = this.seekNumber.min   = min.toString();
-            this.seekRange.max   = this.seekNumber.max   = max.toString();
-            this.seekRange.step  = this.seekNumber.step  = '1';
-            this.setValue(min);
-        }
-        public getMin(): number {
-            return parseInt(this.seekRange.min);
-        }
-        public getMax(): number {
-            return parseInt(this.seekRange.max);
-        }
-
-        public setValue(value: number) {
-            value = Math.max(this.getMin(),
-                    Math.min(this.getMax(), value));  // clamp
-            this.seekRange.value = this.seekNumber.value = value.toString();
-            if (this.callback !== undefined) {
-                this.callback(value);
-            }
-        }
-        public getValue(): number {
-            return parseInt(this.seekRange.value);
-        }
-
-        public getDelay(): number {
-            const fps = parseInt(this.fpsInput.value);
-            return Math.floor(1000 / fps);
-        }
-        private resetInterval() {
-            if (this.intervalId !== undefined) {
-                clearInterval(this.intervalId);
-                this.intervalId = undefined;
-            }
-        }
-        public play() {
-            this.playButton.removeEventListener('click', this.playClosure);
-            this.playButton.   addEventListener('click', this.stopClosure);
-            this.runIcon.classList.remove('play');
-            this.runIcon.classList.add('stop');
-            if (this.getValue() == this.getMax()) {  // if last, go to first
-                this.setValue(this.getMin());
-            }
-            this.resetInterval();
-            this.intervalId = setInterval(() => {
-                if (this.getValue() == this.getMax()) {
-                    this.stop();
-                } else {
-                    this.setValue(this.getValue() + 1);
-                }
-            }, this.getDelay());
-        }
-        public stop() {
-            this.playButton.removeEventListener('click', this.stopClosure);
-            this.playButton.   addEventListener('click', this.playClosure);
-            this.runIcon.classList.remove('stop');
-            this.runIcon.classList.add('play');
-            this.resetInterval();
-        }
-    }
-
-    const loadFile = (file: File, callback: (value: string) => void) => {
-        const reader = new FileReader();
-        reader.readAsText(file);
-        reader.onloadend = function () {
-            callback(reader.result);
-        }
-    };
-
-    const saveUrlAsLocalFile = (url: string, filename: string) => {
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = filename;
-        const evt = document.createEvent('MouseEvent');
-        evt.initEvent("click", true, true);
-        anchor.dispatchEvent(evt);
-    };
-
-    class FileExporter {
-        constructor(canvas: HTMLCanvasElement, seek: RichSeekBar) {
-            const saveAsImage = <HTMLInputElement> document.getElementById("saveAsImage");
-            const saveAsVideo = <HTMLInputElement> document.getElementById("saveAsVideo");
-
-            saveAsImage.addEventListener('click', () => {
-                saveUrlAsLocalFile(canvas.toDataURL('image/png'), 'canvas.png');
-            });
-
-            saveAsVideo.addEventListener('click', () => {
-                if (location.href.match(new RegExp('^file://'))) {
-                    alert('to use this feature, you must re-open this file via "http://", instead of "file://". e.g. you can use "$ python -m SimpleHTTPServer 8000"');
-                }
-                seek.stop();
-                const gif = new GIF();
-                for (let i = seek.getMin(); i < seek.getMax(); ++ i) {
-                    seek.setValue(i);
-                    gif.addFrame(canvas, { copy: true, delay: seek.getDelay() });
-                }
-                gif.on('finished', function(blob) {
-                    saveUrlAsLocalFile(URL.createObjectURL(blob), 'canvas.gif');
-                });
-                gif.render();
-                alert('please wait for a while, about 2 minutes.');
-            });
-        }
-    }
-
     export class App {
         public visualizer: Visualizer;
         public tester: Tester;
-        public loader: FileSelector;
-        public seek: RichSeekBar;
-        public exporter: FileExporter;
+        public loader: framework.FileSelector;
+        public seek: framework.RichSeekBar;
+        public exporter: framework.FileExporter;
 
         constructor() {
             this.visualizer = new Visualizer();
-            this.loader = new FileSelector();
-            this.seek = new RichSeekBar();
-            this.exporter = new FileExporter(this.visualizer.getCanvas(), this.seek);
+            this.loader = new framework.FileSelector();
+            this.seek = new framework.RichSeekBar();
+            this.exporter = new framework.FileExporter(this.visualizer.getCanvas(), this.seek);
 
             this.seek.callback = (value: number) => {
                 if (this.tester !== undefined) {
