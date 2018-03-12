@@ -199,10 +199,17 @@ vector<pair<point_t, vector<int> > > solve(vector<point_t> taxi, vector<point_t>
             }
         }
         cycle_move();
-        // return to the base individually
-        REP (i, t) {
-            point_t target = base + (point_t) { 0, 2 * i };
-            target_delta[i] = target - taxi[i];
+        { // return to the center individually
+            base = {};
+            REP (i, t) {
+                base += taxi[i];
+            }
+            base.y /= t;
+            base.x /= t;
+            REP (i, t) {
+                point_t target = base + (point_t) { 0, 2 * i };
+                target_delta[i] = target - taxi[i];
+            }
         }
         cycle_move();
         {  // go for a zone simultaneously
